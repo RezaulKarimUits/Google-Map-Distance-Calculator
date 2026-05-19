@@ -1,0 +1,1212 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<style>
+    #map {
+        position: relative;
+        padding-bottom: 26.25%;
+        padding-top: 30px;
+        height: 360px;
+        overflow: hidden;
+    }
+
+    .mx-input {
+        height: calc(1.5em + .5rem + 2px);
+        padding: .375rem .75rem;
+    }
+
+    #statTable {
+        font-size: 14px;
+    }
+
+    #locationDistances .e-content {
+        max-height: calc(100vh - 450px);
+    }
+</style>
+
+
+<div id="vc_app" v-cloak>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-4">
+                <form v-on:submit.prevent="calculate" data-vv-scope="frmModel">
+                    <div class="form-row">
+                        @*    <div class="form-group col-4">
+                                <label for="inputEmail4">Travel Mode</label>
+                                <select class="form-control form-control-sm" v-model="travelMode" id="exampleFormControlSelect1">
+                                    <option v-for="mode in travelModes" :value="mode">{{mode}}</option>
+                                </select>
+                            </div>
+                        *@
+                        <div class="form-group col-6">
+                            <label for="departureTime">Departure time</label>
+                            <ejs-datetimepicker :min="minDateForDeparture" v-model="departureTime" :placeholder="'Departure time'"></ejs-datetimepicker>
+                        </div>
+                        @*
+                            <div class="form-group col-4" v-if="travelMode=='DRIVING'">
+                                <label for="inputEmail4">Travel Mode</label>
+                                <select class="form-control form-control-sm" v-model="drivingOptions.trafficModel" id="exampleFormControlSelect1">
+                                    <option v-for="model in trafficModels" :value="model">{{model}}</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group col-4" v-if="travelMode=='TRANSIT'">
+                                <label for="departureTime">Departure time</label>
+                                <ejs-datetimepicker :min="minDateForDeparture" v-model="transitOptions.arrivalTime" :placeholder="'Arrival time'"></ejs-datetimepicker>
+                            </div>
+
+                            <div class="form-group col-4" v-if="travelMode=='TRANSIT'">
+                                <label for="departureTime">Departure time</label>
+                                <ejs-datetimepicker :min="minDateForDeparture" v-model="transitOptions.departureTime" :placeholder="'Departure time'"></ejs-datetimepicker>
+                            </div>*@
+
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-12">
+                            <label for="destinations">Origins</label>
+                            <textarea class="form-control form-control-sm" id="destinations" v-model="destinations" rows="6" v-validate="'required'" name="destinations" :class="{'is-invalid': errors.has('frmModel.destinations')}"></textarea>
+                            <div class="invalid-feedback" :class="{'d-block': errors.has('frmModel.destinations')}">
+                                Please enter location names
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div id="map"></div>
+                    <div class="mt-3">
+                        <button class="btn btn-primary" type="submit">Calculate</button>
+                        <button class="btn btn-secondary" type="button" @@click="clearFilter">Clear</button>
+                        <button class="btn btn-secondary" type="button" @@click="clearAll">Clear All</button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-8">
+                <div style="" class="mb-4">
+                    <template>
+                        <ejs-grid id="locationDistances"
+                                  ref="locationDistances"
+                                  :data-source="result"
+                                  :allow-paging="true"
+                                  :toolbar='distanceGridToolbar'
+                                  :allow-sorting="true"
+                                  :allow-excel-export='true'
+                                  :page-settings="modelTable.pageSettings"
+                                  :toolbar-click='distanceGridToolbarClick'
+                                  :allow-resizing="true">
+                            <e-columns>
+                                <e-column field="origin"
+                                          header-text="Origin"
+                                          width="180"></e-column>
+                                <e-column field="drivingDistanceInKm"
+                                          header-text="Driving Distance"
+                                          format="N"
+                                          text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="drivingTimeInMin"
+                                          header-text="Driving Time"
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="bicyclingDistanceInKm"
+                                          header-text="Bicycling Distance"
+                                          text-align="Right"
+                                          width="170"></e-column>
+                                <e-column field="bicyclingTimeInMin"
+                                          header-text="Bicycling Time"
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="walkingDistanceInKm"
+                                          header-text="Walking Distance"
+                                          text-align="Right"
+                                          width="160"></e-column>
+                                <e-column field="walkingTimeInMin"
+                                          header-text="Walking Time"
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="busDistanceInKm"
+                                          header-text="Bus Distance"
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="busTimeInMin"
+                                          header-text="Bus Time"
+                                          text-align="Right"
+                                          width="120"></e-column>
+                                <e-column field="railDistanceInKm"
+                                          header-text="Rail Distance"
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="railTimeInMin"
+                                          header-text="Rail Time"
+                                          text-align="Right"
+                                          width="120"></e-column>
+                                <e-column field="subwayDistanceInKm"
+                                          header-text="Subway Distance"
+                                          text-align="Right"
+                                          width="160"></e-column>
+                                <e-column field="subwayTimeInMin"
+                                          header-text="Subway Time"
+                                          text-align="Right"
+                                          width="130"></e-column>
+                                <e-column field="trainDistanceInKm"
+                                          header-text="Train Distance"
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="trainTimeInMin"
+                                          header-text="Train Time"
+                                          text-align="Right"
+                                          width="120"></e-column>
+                                <e-column field="tramDistanceInKm"
+                                          header-text="Tram Distance"
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="tramTimeInMin"
+                                          header-text="Tram Time"
+                                          text-align="Right"
+                                          width="120"></e-column>
+                            </e-columns>
+
+                        </ejs-grid>
+                    </template>
+                </div>
+                <div>
+                    <template>
+                        <ejs-grid id="statisticsGrid"
+                                  ref="statisticsGrid"
+                                  :data-source="statistics"
+                                  :toolbar='statisticsGridToolbar'
+                                  :allow-sorting="true"
+                                  :allow-excel-export='true'
+                                  :page-settings="modelTable.pageSettings"
+                                  :toolbar-click='statisticsGridToolbarClick'
+                                  :allow-resizing="true">
+                            <e-columns>
+                                <e-column field="destination"
+                                          header-text="Destination"
+                                          width="180"></e-column>
+                                <e-column field="totalOrigins"
+                                          text-align="Right"
+                                          header-text="Total Origins"
+                                          width="130"></e-column>
+
+                                <e-column field="maxDrivDistance"
+                                          header-text="Max Drive Dis."
+                                          text-align="Right"
+                                          format="N"
+                                          width="140"></e-column>
+                                <e-column field="medianDrivingDistance"
+                                          header-text="Med. Drive Dis."
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="minDrivDistance"
+                                          header-text="Min Drive Dis."
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="maxDrivTime"
+                                          header-text="Max Drive T."
+                                          text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianDrivingTime"
+                                          header-text="Med. Drive T."
+                                          text-align="Right"
+                                          width="130"></e-column>
+                                <e-column field="minDriveTime"
+                                          header-text="Min Drive T."
+                                          text-align="Right"
+                                          width="130"></e-column>
+
+                                <e-column field="maxBicycleDistance"
+                                          header-text="Max Bicycle Dis." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="medianBicyclingDistance"
+                                          header-text="Med. Bicycle Dis." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="minBicycleDistance"
+                                          header-text="Min Bicycle Dis." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="maxBicycleTime"
+                                          header-text="Max Bicycle T." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianBicyclingTime"
+                                          header-text="Med. Bicycle T." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="minBicycleTime"
+                                          header-text="Min Bicycle T." text-align="Right"
+                                          width="140"></e-column>
+
+                                <e-column field="maxWalkDistance"
+                                          header-text="Max Walk Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianWalkingDistance"
+                                          header-text="Med. Walk Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="minWalkDistance"
+                                          header-text="Min Walk Dis." text-align="Right"
+                                          width="160"></e-column>
+                                <e-column field="maxWalkTime"
+                                          header-text="Max Walk T." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianWalkingTime"
+                                          header-text="Med. Walk T." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="minWalkTime"
+                                          header-text="Min Walk T." text-align="Right"
+                                          width="140"></e-column>
+
+                                <e-column field="maxBusDistance"
+                                          header-text="Max Bus Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianBusDistance"
+                                          header-text="Med. Bus Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="minBusDistance"
+                                          header-text="Min Bus Dis." text-align="Right"
+                                          width="160"></e-column>
+                                <e-column field="maxBusTime"
+                                          header-text="Max Bus T." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianBusTime"
+                                          header-text="Med. Bus T." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="minBusTime"
+                                          header-text="Min Bus T." text-align="Right"
+                                          width="140"></e-column>
+
+                                <e-column field="maxRailDistance"
+                                          header-text="Max Rail Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianRailDistance"
+                                          header-text="Med. Rail Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="minRailDistance"
+                                          header-text="Min Rail Dis." text-align="Right"
+                                          width="160"></e-column>
+                                <e-column field="maxRailTime"
+                                          header-text="Max Rail T." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianRailTime"
+                                          header-text="Med. Rail T." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="minRailTime"
+                                          header-text="Min Rail T." text-align="Right"
+                                          width="140"></e-column>
+
+
+                                <e-column field="maxSubwayDistance"
+                                          header-text="Max Subway Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianSubwayDistance"
+                                          header-text="Med. Subway Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="minSubwayDistance"
+                                          header-text="Min Subway Dis." text-align="Right"
+                                          width="160"></e-column>
+                                <e-column field="maxSubwayTime"
+                                          header-text="Max Subway T." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianSubwayTime"
+                                          header-text="Med. Subway T." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="minSubwayTime"
+                                          header-text="Min Subway T." text-align="Right"
+                                          width="140"></e-column>
+
+                                <e-column field="maxTrainDistance"
+                                          header-text="Max Train Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianTrainDistance"
+                                          header-text="Med. Train Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="minTrainDistance"
+                                          header-text="Min Train Dis." text-align="Right"
+                                          width="160"></e-column>
+                                <e-column field="maxTrainTime"
+                                          header-text="Max Train T." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianTrainTime"
+                                          header-text="Med. Train T." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="minTrainTime"
+                                          header-text="Min Train T." text-align="Right"
+                                          width="140"></e-column>
+
+                                <e-column field="maxTramDistance"
+                                          header-text="Max Tram Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianTramDistance"
+                                          header-text="Med. Tram Dis." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="minTramDistance"
+                                          header-text="Min Tram Dis." text-align="Right"
+                                          width="160"></e-column>
+                                <e-column field="maxTramTime"
+                                          header-text="Max Tram T." text-align="Right"
+                                          width="140"></e-column>
+                                <e-column field="medianTramTime"
+                                          header-text="Med. Tram T." text-align="Right"
+                                          width="150"></e-column>
+                                <e-column field="minTramTime"
+                                          header-text="Min Tram T." text-align="Right"
+                                          width="140"></e-column>
+                            </e-columns>
+
+                        </ejs-grid>
+                    </template>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts{
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCTwbQei5fpFrm2RDm9VzjqIblbUOMigWo"></script>
+    <script src="~/lib/moment.min.js"></script>
+    <script>
+        const { GridPlugin, Sort, Filter, Toolbar, ExcelExport } = ejs.grids;
+        const { DateTimePickerPlugin } = ejs.calendars;
+
+        Vue.use(DateTimePickerPlugin);
+        Vue.use(GridPlugin);
+        Vue.use(VeeValidate);
+
+
+        const svgMarker = {
+            path: "M256,0C161.896,0,85.333,76.563,85.333,170.667c0,28.25,7.063,56.26,20.49,81.104L246.667,506.5    c1.875,3.396,5.448,5.5,9.333,5.5s7.458-2.104,9.333-5.5l140.896-254.813c13.375-24.76,20.438-52.771,20.438-81.021    C426.667,76.563,350.104,0,256,0z M256,256c-47.052,0-85.333-38.281-85.333-85.333c0-47.052,38.281-85.333,85.333-85.333    s85.333,38.281,85.333,85.333C341.333,217.719,303.052,256,256,256z",
+            fillColor: "#0066D3",
+            fillOpacity: 1,
+            strokeWeight: 1,
+            strokeColor: "#fff",
+            rotation: 0,
+            scale: 0.07,
+            //anchor: new google.maps.Point(15, 30),
+        };
+
+        const travelModes = ['DRIVING', 'BICYCLING', 'WALKING', 'TRANSIT'];
+        const transitModes = ['BUS', 'RAIL', 'SUBWAY', 'TRAIN', 'TRAM'];
+        const trafficModels = ['bestguess', 'pessimistic', 'optimistic'];
+        var app = new Vue({
+            el: '#vc_app',
+            data: {
+                map: {},
+                geocoder: {},
+                service: {},
+                bounds: {},
+                currentMarkerLatlng: null,
+                currentMarker: null,
+                markersArray: [],
+                travelModes: travelModes,
+                trafficModels: trafficModels,
+                transitModes: transitModes,
+                travelMode: '',
+                currentTravelMode: 'DRIVING',
+                currentTransitMode: 'BUS',
+                drivingOptions: { departureTime: '', trafficModel: 'bestguess' },
+                destinations: '',
+                departureTime: '',
+                minDateForDeparture: '',
+                result: [],
+                modelTable: {
+                    pageSettings: {
+                        pageSizes: [10, 20, 50, 100],
+                        pageSize: 10,
+                        pageCount: 5
+                    }
+                },
+                distanceGridToolbar: ['Search', 'ExcelExport'],
+                statisticsGridToolbar: ['ExcelExport'],
+                takeAddressToCalculate: 10,
+                destinationName: '',
+                statistics: []
+            },
+            mounted: function () {
+                this.minDateForDeparture = new Date(Date.now() + 10000);
+
+                this.destinations = window.localStorage.getItem('destinations');
+                this.map = new google.maps.Map(document.getElementById("map"), {
+                    center: { lat: 59.32489359908779, lng: 18.071498668311246 },
+                    zoom: 10,
+                });
+                // initialize services
+                this.geocoder = new google.maps.Geocoder();
+                this.service = new google.maps.DistanceMatrixService();
+
+                this.bounds = new google.maps.LatLngBounds();
+                this.map.addListener("click", (mapsMouseEvent) => {
+                    if (this.currentMarker) {
+                        this.currentMarker.setMap(null);
+                        this.currentMarker = null;
+                    }
+
+                    this.result = [];
+
+                    this.currentMarkerLatlng = null;
+
+                    this.currentMarker = new google.maps.Marker({
+                        map: this.map,
+                        position: mapsMouseEvent.latLng,
+                        label: '',
+                        icon: 'http://maps.google.com/mapfiles/kml/paddle/blu-blank.png'
+                    });
+
+                    this.deleteMarkers();
+
+                    this.currentMarkerLatlng = mapsMouseEvent.latLng;
+
+
+                });
+
+            },
+            computed: {
+                destinationList: function () {
+                    if (!this.destinations) return [];
+
+                    const destinations = this.destinations.split('\n');
+
+                    return destinations;
+                }
+            },
+            methods: {
+                calculateTime(originLatLng, skip) {
+
+                    let destinations = this.skipTake(this.destinationList, skip, this.takeAddressToCalculate);
+                    if (destinations.length > 0) {
+                        const request = {
+                            origins: destinations,
+                            destinations: [originLatLng],
+                            travelMode: this.currentTravelMode,
+                            unitSystem: google.maps.UnitSystem.METRIC,
+                            avoidHighways: false,
+                            avoidTolls: false
+                        };
+
+                        //if (this.travelMode == 'DRIVING') {
+                        //    request.drivingOptions = {
+                        //        departureTime: this.drivingOptions.departureTime ? this.drivingOptions.departureTime : new Date(Date.now() + 100000),  // for the time N milliseconds from now.
+                        //        trafficModel: this.drivingOptions.trafficModel
+                        //    }
+                        //}
+
+                        //if (this.travelMode == 'TRANSIT') {
+                        //    request.transitOptions = {
+                        //        departureTime: new Date(Date.now() + 100000),
+                        //        modes: ['BUS','RAIL','SUBWAY','TRAIN','TRAM']
+                        //    }
+                        //}
+
+                        if (!this.travelMode) {
+                            if (this.currentTravelMode == 'DRIVING') {
+                                request.drivingOptions = {
+                                    departureTime: this.departureTime ? this.departureTime : new Date(Date.now() + 100000),  // for the time N milliseconds from now.
+                                    trafficModel: this.drivingOptions.trafficModel
+                                }
+                            }
+
+                            if (this.currentTravelMode == 'TRANSIT') {
+                                request.transitOptions = {
+                                    //departureTime: new Date(Date.now() + 100000),
+                                    modes: [this.currentTransitMode]
+                                }
+
+                                if (this.departureTime) {
+                                    request.transitOptions.departureTime = this.departureTime;
+                                }
+                            }
+                        }
+
+                        this.service.getDistanceMatrix(request).then((response) => {
+
+                            const originList = response.originAddresses;
+                            const destinationList = response.destinationAddresses;
+
+                            this.destinationName = destinationList[0];
+
+                            console.log('ORIGIN LIST')
+                            console.log(originList)
+
+
+                            const showGeocodedAddressOnMap = (asDestination) => {
+
+                                const handler = ({ results }) => {
+                                    this.map.fitBounds(_bounds.extend(results[0].geometry.location));
+                                    this.markersArray.push(
+                                        new google.maps.Marker({
+                                            map: this.map,
+                                            position: results[0].geometry.location,
+                                            label: asDestination ? "D" : "O",
+                                        })
+                                    );
+                                };
+
+
+                                return handler;
+                            };
+
+                            for (let i = 0; i < originList.length; i++) {
+                                const results = response.rows[i].elements;
+
+                                for (let j = 0; j < results.length; j++) {
+
+                                    if (this.currentTravelMode == 'DRIVING') {
+                                        this.result.push({
+                                            origin: originList[i],
+                                            destination: originList[i],
+                                            drivingDistance: results[j].distance.text.replace('.', ','),
+                                            drivingDistanceInMeters: results[j].distance.value,
+                                            drivingDistanceInKm: (parseFloat(results[j].distance.value) / 1000).toFixed(2).toString().replace('.', ','),
+                                            drivingTime: results[j].duration.text,
+                                            drivingTimeInSeconds: parseInt(results[j].duration.value),
+                                            drivingTimeInMin: parseFloat((parseFloat(results[j].duration.value) / 60).toFixed(0)),
+
+                                            walkingDistance: '',
+                                            walkingDistanceInMeters: '',
+                                            walkingDistanceInKm: 0,
+                                            walkingTime: '',
+                                            walkingTimeInSeconds: '',
+                                            walkingTimeInMin: 0,
+
+                                            bicyclingDistance: '',
+                                            bicyclingDistanceInMeters: '',
+                                            bicyclingDistanceInKm: 0,
+                                            bicyclingTime: '',
+                                            bicyclingTimeInSeconds: '',
+                                            bicyclingTimeInMin: 0,
+
+                                            busDistance: '',
+                                            busDistanceInMeters: '',
+                                            busDistanceInKm: 0,
+                                            busTime: '',
+                                            busTimeInSeconds: '',
+                                            busTimeInMin: 0,
+
+                                            subwayDistance: '',
+                                            subwayDistanceInMeters: '',
+                                            subwayDistanceInKm: 0,
+                                            subwayTime: '',
+                                            subwayTimeInSeconds: '',
+                                            subwayTimeInMin: 0,
+
+                                            trainDistance: '',
+                                            trainDistanceInMeters: '',
+                                            trainDistanceInKm: 0,
+                                            trainTime: '',
+                                            trainTimeInSeconds: '',
+                                            trainTimeInMin: 0,
+
+                                            railDistance: '',
+                                            railDistanceInMeters: '',
+                                            railDistanceInKm: 0,
+                                            railTime: '',
+                                            railTimeInSeconds: '',
+                                            railTimeInMin: 0,
+
+                                            tramDistance: '',
+                                            tramDistanceInMeters: '',
+                                            tramDistanceInKm: 0,
+                                            tramTime: '',
+                                            tramTimeInSeconds: '',
+                                            tramTimeInMin: 0,
+                                        })
+                                    }
+                                    else {
+                                        const currentOrigin = this.result[i + skip];
+                                        if (this.currentTravelMode == 'TRANSIT') {
+                                            currentOrigin[`${this.currentTransitMode.toLowerCase()}Distance`] = results[j].distance?.text.replace('.', ',');
+                                            currentOrigin[`${this.currentTransitMode.toLowerCase()}DistanceInMeters`] = results[j].distance?.value;
+                                            currentOrigin[`${this.currentTransitMode.toLowerCase()}DistanceInKm`] = results[j].distance ? (parseFloat(results[j].distance.value) / 1000).toFixed(2).toString().replace('.', ',') : 0;
+
+                                            currentOrigin[`${this.currentTransitMode.toLowerCase()}Time`] = results[j].duration?.text;
+                                            currentOrigin[`${this.currentTransitMode.toLowerCase()}TimeInSeconds`] = results[j].duration?.value;
+                                            currentOrigin[`${this.currentTransitMode.toLowerCase()}TimeInMin`] = results[j].duration ? parseFloat((parseFloat(results[j].duration.value) / 60).toFixed(0)) : 0;
+                                        } else {
+                                            currentOrigin[`${this.currentTravelMode.toLowerCase()}Distance`] = results[j].distance?.text.replace('.', ',');
+                                            currentOrigin[`${this.currentTravelMode.toLowerCase()}DistanceInMeters`] = results[j].distance?.value;
+                                            currentOrigin[`${this.currentTravelMode.toLowerCase()}DistanceInKm`] = results[j].distance ? (parseFloat(results[j].distance.value) / 1000).toFixed(2).toString().replace('.', ',') : 0;
+
+                                            currentOrigin[`${this.currentTravelMode.toLowerCase()}Time`] = results[j].duration?.text;
+                                            currentOrigin[`${this.currentTravelMode.toLowerCase()}TimeInSeconds`] = results[j].duration?.value;
+                                            currentOrigin[`${this.currentTravelMode.toLowerCase()}TimeInMin`] = results[j].duration ? parseFloat((parseFloat(results[j].duration.value) / 60).toFixed(0)) : 0;
+                                        }
+                                    }
+                                    var locationDistanceGrid = document.getElementById("locationDistances").ej2_instances[0];
+                                    locationDistanceGrid.refresh();
+                                }
+                            }
+                        });
+
+                        setTimeout(() => {
+                            this.calculateTime(originLatLng, skip + this.takeAddressToCalculate);
+                        }, 2000);
+
+                    }
+                    else {
+                        if (this.currentTravelMode == 'TRANSIT' && this.currentTransitMode == 'TRAM') {
+                            this.calculateStatistics();
+                            this.unBlockUI();
+                        } else {
+
+                            if (this.currentTravelMode == 'TRANSIT') {
+                                const currentTransitModeIndex = this.transitModes.findIndex(x => x == this.currentTransitMode);
+                                this.currentTransitMode = this.transitModes[currentTransitModeIndex + 1];
+                            } else {
+                                const currentTravelModeIndex = this.travelModes.findIndex(x => x == this.currentTravelMode);
+                                this.currentTravelMode = this.travelModes[currentTravelModeIndex + 1];
+                            }
+
+                            setTimeout(() => {
+                                this.calculateTime(originLatLng, 0);
+                            }, 2000);
+                        }
+
+                    }
+                },
+
+                calculateStatistics() {
+
+                    const { medianDistance: medianDrivingDistance, medianTime: medianDrivingTime, maxDistance: maxDrivDistance, minDistance: minDrivDistance, maxTime: maxDrivTime, minTime: minDriveTime } = this.calculateTravelModeDistanceAndTime('driving');
+                    const { medianDistance: medianWalkingDistance, medianTime: medianWalkingTime, maxDistance: maxWalkDistance, minDistance: minWalkDistance, maxTime: maxWalkTime, minTime: minWalkTime } = this.calculateTravelModeDistanceAndTime('walking');
+                    const { medianDistance: medianBicyclingDistance, medianTime: medianBicyclingTime, maxDistance: maxBicycleDistance, minDistance: minBicycleDistance, maxTime: maxBicycleTime, minTime: minBicycleTime } = this.calculateTravelModeDistanceAndTime('bicycling');
+                    const { medianDistance: medianBusDistance, medianTime: medianBusTime, maxDistance: maxBusDistance, minDistance: minBusDistance, maxTime: maxBusTime, minTime: minBusTime } = this.calculateTravelModeDistanceAndTime('bus');
+                    const { medianDistance: medianRailDistance, medianTime: medianRailTime, maxDistance: maxRailDistance, minDistance: minRailDistance, maxTime: maxRailTime, minTime: minRailTime } = this.calculateTravelModeDistanceAndTime('rail');
+                    const { medianDistance: medianSubwayDistance, medianTime: medianSubwayTime, maxDistance: maxSubwayDistance, minDistance: minSubwayDistance, maxTime: maxSubwayTime, minTime: minSubwayTime } = this.calculateTravelModeDistanceAndTime('subway');
+                    const { medianDistance: medianTrainDistance, medianTime: medianTrainTime, maxDistance: maxTrainDistance, minDistance: minTrainDistance, maxTime: maxTrainTime, minTime: minTrainTime } = this.calculateTravelModeDistanceAndTime('train');
+                    const { medianDistance: medianTramDistance, medianTime: medianTramTime, maxDistance: maxTramDistance, minDistance: minTramDistance, maxTime: maxTramTime, minTime: minTramTime } = this.calculateTravelModeDistanceAndTime('tram');
+
+                    console.log('Type of total origins: ' + typeof this.destinationList.length);
+                    console.log('Type of maxDrivDistance: ' + typeof maxDrivDistance);
+
+
+                    this.statistics.push({
+                        destination: this.destinationName,
+                        totalOrigins: parseInt(this.destinationList.length),
+                        medianDrivingDistance, medianDrivingTime, maxDrivDistance, minDrivDistance, maxDrivTime, minDriveTime,
+                        medianWalkingDistance, medianWalkingTime, maxWalkDistance, minWalkDistance, maxWalkTime, minWalkTime,
+                        medianBicyclingDistance, medianBicyclingTime, maxBicycleDistance, minBicycleDistance, maxBicycleTime, minBicycleTime,
+                        medianBusDistance, medianBusTime, maxBusTime, minBusTime, maxBusDistance, minBusDistance,
+                        medianRailDistance, medianRailTime, maxRailDistance, minRailDistance, maxRailTime, minRailTime,
+                        medianSubwayDistance, medianSubwayTime, maxSubwayDistance, minSubwayDistance, maxSubwayTime, minSubwayTime,
+                        medianTrainDistance, medianTrainTime, maxTrainDistance, minTrainDistance, maxTrainTime, minTrainTime,
+                        medianTramDistance, medianTramTime, maxTramDistance, minTramDistance, maxTramTime, minTramTime
+                    });
+
+                    var statisticsGrid = document.getElementById("statisticsGrid").ej2_instances[0];
+                    statisticsGrid.refresh();
+                },
+
+                calculateTravelModeDistanceAndTime(mode) {
+                    //const totalDistance = this.result.map(item => item[`${mode}DistanceInMeters`]).reduce((prev, next) => prev + next);
+                    //const averageDistanceInMeters = totalDistance / this.result.length;
+                    //const averageDistance = Math.round(averageDistanceInMeters / 1000) + ' km';
+                    const maxDistanceInMeters = Math.max.apply(Math, this.result.map(item => item[`${mode}DistanceInMeters`]));
+                    const maxDistance = Math.round(maxDistanceInMeters / 1000).toString().replace('.', ',');
+                    const minDistanceInMeters = Math.min.apply(Math, this.result.map(item => item[`${mode}DistanceInMeters`]));
+                    const minDistance = Math.round(minDistanceInMeters / 1000).toString().replace('.', ',');
+                    const medianDistanceInMeters = this.getMedian(this.result.map(item => item[`${mode}DistanceInMeters`]));
+                    const medianDistance = Math.round(medianDistanceInMeters / 1000).toString().replace('.', ',');
+
+                    //const totalTime = this.result.map(item => item[`${mode}TimeInSeconds`]).reduce((prev, next) => prev + next);
+                    //const avgTimeInSeconds = totalTime / this.result.length;
+                    //const averageTime = Math.round(avgTimeInSeconds / 60) + ' mins';
+                    const maxTimeInSeconds = Math.max.apply(Math, this.result.map(item => item[`${mode}TimeInSeconds`]));
+                    const maxTime = this.getFormattedDuration(maxTimeInSeconds);
+                    const minTimeInSeconds = Math.min.apply(Math, this.result.map(item => item[`${mode}TimeInSeconds`]));
+                    const minTime = this.getFormattedDuration(minTimeInSeconds);
+                    const medianTimeInSeconds = this.getMedian(this.result.map(item => item[`${mode}TimeInSeconds`]));
+                    const medianTime = this.getFormattedDuration(medianTimeInSeconds);
+                    //Math.round(medianTimeInSeconds / 60) + ' mins';
+
+                    return {
+                        medianDistance: parseFloat(medianDistance),
+                        medianTime: parseFloat(medianTime),
+                        maxDistance: parseFloat(maxDistance),
+                        maxTime: parseFloat(maxTime),
+                        minDistance: parseFloat(minDistance),
+                        minTime: parseFloat(minTime),
+                    }
+                },
+                getMedian(arr) {
+                    const mid = Math.floor(arr.length / 2),
+                        nums = [...arr].sort((a, b) => a - b);
+                    return arr.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+                },
+                getCurrentTimeUTC() {
+                    //RETURN:
+                    //      = number of milliseconds between current UTC time and midnight of January 1, 1970
+                    var tmLoc = new Date();
+                    //The offset is in minutes -- convert it to ms
+                    return tmLoc.getTime() + tmLoc.getTimezoneOffset() * 60000;
+                },
+                calculate() {
+                    window.localStorage.setItem('destinations', this.destinations);
+
+                    if (!this.currentMarkerLatlng) {
+                        $.notify('Please select a destination on map', 'error');
+                        return;
+                    }
+
+                    this.$validator.validateAll('frmModel').then((result) => {
+                        if (result) {
+                            this.blockUI();
+                            this.result = [];
+                            this.currentTravelMode = 'DRIVING';
+                            this.currentTransitMode = 'BUS';
+                            this.calculateTime(this.currentMarkerLatlng, 0);
+                        }
+                    }).catch(() => {
+
+                    });
+
+                },
+                clearFilter() {
+                    if (this.currentMarker) {
+                        this.currentMarker.setMap(null);
+                        this.currentMarker = null;
+                    }
+                    //this.drivingOptions = { departureTime: '', trafficModel: 'bestguess' };
+                    //this.destinations = '';
+                    //window.localStorage.setItem('destinations', this.destinations);
+                    //this.travelMode = 'DRIVING';
+                    this.result = [];
+                    this.currentMarkerLatlng = null;
+                    this.deleteMarkers();
+
+                },
+                clearAll() {
+                    window.localStorage.setItem('destinations', this.destinations);
+                    window.location.reload();
+                },
+                deleteMarkers() {
+                    for (let i = 0; i < this.markersArray.length; i++) {
+                        this.markersArray[i].setMap(null);
+                    }
+
+                    this.markersArray = [];
+                },
+                getFormattedDuration(secs) {
+
+                    return Math.round(secs / 60);
+
+                    const formatted = moment.utc(secs * 1000).format('HH:mm:ss');
+
+                    let [hours, minutes, seconds] = formatted.split(':');
+                    minutes = seconds > 30 ? parseInt(minutes) + 1 : minutes;
+                    hours = parseInt(hours);
+                    minutes = parseInt(minutes);
+                    const result = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : '';
+
+                    return `${result} ${minutes} min${minutes > 1 ? 's' : ''}`
+                },
+                distanceGridToolbarClick(args) {
+                    if (args.item.id === 'locationDistances_excelexport') { // 'Grid_excelexport' -> Grid component id + _ + toolbar item name
+                        let appendExcelExportProperties = {
+                            fileName: "Distances & Time from Origin to Destination.xlsx"
+                        };
+                        var locationDistanceGrid = document.getElementById("locationDistances").ej2_instances[0];
+                        locationDistanceGrid.excelExport(appendExcelExportProperties);
+                    }
+                },
+                statisticsGridToolbarClick(args) {
+                    if (args.item.id === 'statisticsGrid_excelexport') { // 'Grid_excelexport' -> Grid component id + _ + toolbar item name
+                        let appendExcelExportProperties = {
+                            fileName: "Statistics of Distance & Time.xlsx"
+                        };
+                        var statisticsGrid = document.getElementById("statisticsGrid").ej2_instances[0];
+                        statisticsGrid.excelExport(appendExcelExportProperties);
+                    }
+                },
+                skipTake(array, skip, take) {
+
+                    let len = array.length;
+                    if ((skip + take) > len) {
+                        take = len - skip;
+                    }
+
+                    let newArray = [];
+                    for (i = skip; i < (skip + take); i++) {
+                        newArray.push(array[i]);
+                    }
+
+                    return newArray;
+                },
+                blockUI(ctrl) {
+                    ctrl = this.isNullOrEmpty(ctrl) ? 'body' : ctrl;
+                    $(ctrl).loading({
+                        stoppable: false,
+                        zIndex: 10051,
+                        message: 'Please wait ...'
+                    });
+                },
+                unBlockUI(ctrl) {
+                    ctrl = this.isNullOrEmpty(ctrl) ? 'body' : ctrl;
+                    $(ctrl).loading('stop');
+                },
+                isNullOrEmpty(str) {
+                    if (typeof str === 'undefined')
+                        return true;
+
+                    if (str === null)
+                        return true;
+
+                    var string = str.toString();
+                    if (!string)
+                        return true;
+                    return string === null || string.match(/^ *$/) !== null;
+                }
+            }
+        });
+
+    </script>
+    @*<script>
+
+            var map;
+            const _destinations = ['174 56	Sundbyberg,Sweden',
+                '114 54	Stockholm,Sweden',
+                '802 86	Gävle,Sweden',
+                '138 80	Älta,Sweden',
+                '187 43	Täby,Sweden',
+                '192 48	Sollentuna,Sweden',
+                '168 78	Bromma,Sweden',
+                '191 62	Sollentuna,Sweden',
+                '163 40	Stockholm,Sweden',
+                '112 16	Stockholm,Sweden',
+                '135 42	,Sweden',
+                '167 43	Bromma,Sweden',
+                '115 36	Stockholm,Sweden',
+                '174 62	Sundbyberg,Sweden',
+                '172 30	Sundbyberg,Sweden',
+                '135 55	Tyresö	,Sweden',
+                '120 54	Årsta,Sweden',
+                '175 44	Järfälla,Sweden',
+                '122 34	Enskede,Sweden',
+                '186 33	vallentuna,Sweden',
+                '179 60	Stenhamra,Sweden',
+                '194 42	Upplands Väsby,Sweden',
+                '172 38	Sundbyberg,Sweden',
+                '142 64	Trångsund,Sweden',
+                '139 36	,Sweden',
+                '138 34	Sollentuna,Sweden',
+                '741 47	,Sweden',
+                '192 74	Sollentuna,Sweden',
+                '179 98	Färentuna,Sweden',
+                '113 61	Stockholm,Sweden',
+                '162 72	Vällingby,Sweden',
+                '177 41	Järfälla,Sweden',
+                '191 46	Sollentuna,Sweden',
+                '191 63	Sollentuna,Sweden',
+                '147 45	Tumba,Sweden',
+                '191 64	Sollentuna,Sweden',
+                '186 97	Brottby,Sweden',
+                '170 67	Solna,Sweden',
+                '126 29	Hägersten,Sweden',
+                '139 36	,Sweden',
+                '138 34	Hägersten,Sweden',
+                '170 72	Solna,Sweden',
+                '187 53	Täby,Sweden',
+                '184 52	Österskär,Sweden',
+                '195 34	Märsta,Sweden',
+                '174 61	Sundbyberg,Sweden',
+                '186 47	,Sweden',
+                '114 52	Stockholm,Sweden',
+                '162 65	Vällingby,Sweden',
+                '181 59	,Sweden',
+                '168 49	Bromma,Sweden',
+                '194 39	Upplands Väsby,Sweden',
+                '112 28	Stockholm,Sweden',
+                '184 42	Åkersberga,Sweden',
+                '186 43	Vallentuna,Sweden',
+                '193 41	Sigtuna,Sweden',
+                '175 57	Järfälla,Sweden',
+                '137 64	Jordbro,Sweden',
+                '136 47	Haninge,Sweden',
+                '168 70	Bromma,Sweden',
+                '144 51	Rönninge,Sweden',
+                '761 30	Norrtälje,Sweden',
+                '142 34	Skogås,Sweden',
+                '177 44	Järfälla,Sweden',
+                '131 34	NACKA,Sweden',
+                '191 37	Sollentuna,Sweden',
+                '141 42	Huddinge,Sweden',
+                '197 36	Bro,Sweden',
+                '416 59	Göteborg,Sweden',
+                '168 72	Bromma,Sweden',
+                '195 59	Märsta,Sweden',
+                '192 70	Sollentuna,Sweden',
+                '141 31	Huddinge,Sweden',
+                '136 59	Vendelsö,Sweden',
+                '167 32	Bromma,Sweden',
+                '183 58	Täby,Sweden',
+                '17675	Kallhäll,Sweden',
+                '177 42	Järfälla,Sweden',
+                '427 50	Billdal,Sweden',
+                '129 51	Hägersten,Sweden',
+                '168 65	,Sweden',
+                '192 55	Sollentuna,Sweden',
+                '172 78	Sundbyberg,Sweden',
+                '168 70	Bromma,Sweden',
+                '172 39	Sundbyberg,Sweden',
+                '745 97	Enköping,Sweden',
+                '170 62	,Sweden',
+                '113 65	Lidingö,Sweden',
+                '181 30	,Sweden',
+                '133 42	Solna,Sweden',
+                '169 73	Kungsängen,Sweden',
+                '647 92	Mariefred,Sweden',
+                '112 45	Stockholm,Sweden',
+                '165 52	Hässelby,Sweden',
+                '113 23	,Sweden',
+                '177 53	Järfälla,Sweden',
+                '142 43	,Sweden',
+                '126 38	Hägersten,Sweden',
+                '746 33	Bålsta,Sweden',
+                '168 43	Bromma,Sweden',
+                '134 39	Gustavsberg,Sweden',
+                '192 65	,Sweden',
+                '178 38	ekerö,Sweden',
+                '120 32	Stockholm,Sweden',
+                '891 51	Örnsköldsvik,Sweden',
+                '113 65	,Sweden',
+                '168 73	Bromma,Sweden',
+                '762 92	Rimbo,Sweden',
+                '192 77	Sollentuna,Sweden',
+                '112 29	Stockholm,Sweden',
+                '746 37	Bålsta,Sweden',
+                '187 53	Täby,Sweden',
+                '749 52	Grillby,Sweden',
+                '112 51	,Sweden',
+                '196 38	Kungsängen,Sweden',
+                '184 52	Österskär,Sweden',
+                '184 94	Åkersberga,Sweden',
+                '168 30	Bromma,Sweden',
+                '117 28	stockholm,Sweden',
+                '181 30	,Sweden',
+                '133 42	,Sweden',
+                '169 73	,Sweden',
+                '746 32	Bålsta,Sweden',
+                '141 48	Huddinge,Sweden',
+                '162 71	Vällingby,Sweden',
+                '171 58	Solna,Sweden',
+                '128 31	SKARPNÄCK,Sweden',
+                '186 36	Vallentuna,Sweden',
+                '187 77	Täby,Sweden',
+                '169 31	Solna,Sweden',
+                '196 37	Kungsängen,Sweden',
+                '129 45	Hägersten,Sweden',
+                '194 78	Upplands Väsby,Sweden',
+                '181 51	Lidingö,Sweden',
+                '170 62	Solna,Sweden',
+                '148 95	Muskö,Sweden',
+                '167 45	Bromma,Sweden',
+                '186 33	Vallentuna,Sweden',
+                '194 47	Upplands Väsby,Sweden',
+                '168 33	Bromma,Sweden',
+                '162 70	Vällingby,Sweden',
+                '136 62	Brandbergen,Sweden',
+                '191 34	Sollentuna,Sweden',
+                '171 51	Solna,Sweden',
+                '139 55	Värmdö,Sweden',
+                '185 34	Vaxholm,Sweden',
+                '112 15	Stockholm,Sweden',
+                '187 70	Täby,Sweden',
+                '165 78	Hässelby,Sweden',
+                '114 55	Stockholm,Sweden',
+                '740 10	Almunge,Sweden',
+                '194 73	Upplands Väsby,Sweden',
+                '175 43	Järfälla,Sweden',
+                '176 75	Järfälla,Sweden',
+                '142 52	Skogås,Sweden',
+                '182 74	Stocksund,Sweden',
+                '186 92	Vallentuna,Sweden',
+                '117 68	Stockholm,Sweden',
+                '184 37	Åkersberga,Sweden',
+                '162 71	Vällingby,Sweden',
+                '178 40	Ekerö,Sweden',
+                '192 42	Upplands Väsby	,Sweden',
+                '177 52	Järfälla,Sweden',
+                '141 92	Huddinge,Sweden',
+                '172 38	Sundbyberg	,Sweden',
+                '139 34	Värmdö,Sweden',
+                '184 36	Åkersberga,Sweden',
+                '122 41	Enskede,Sweden',
+                '135 47	Tyresö,Sweden',
+                '184 34	Åkersberga,Sweden',
+                '184 61	Åkersberga,Sweden',
+                '171 73	Solna,Sweden',
+                '162 71	Vällingby,Sweden',
+                '112 18	Stockholm,Sweden',
+                '191 74	Sollentuna,Sweden',
+                '126 47	Hägersten,Sweden',
+                '170 77	Solna,Sweden',
+                '132 47	Saltsjö-Boo,Sweden',
+                '169 73	Solna,Sweden',
+                '177 44	Järfälla,Sweden',
+                '184 51	Österskär,Sweden',
+                '183 55	Täby,Sweden',
+                '191 45	Sollentuna,Sweden',
+                '172 68	Sundbyberg,Sweden',
+                '186 50	Vallentuna,Sweden',
+                '183 65	Täby,Sweden',
+                '125 35	Älvsjö,Sweden',
+                '187 54	Täby,Sweden',
+                '112 19	Stockholm,Sweden',
+                '112 42	Stockholm,Sweden',
+                '122 48	Enskede,Sweden',
+                '122 34	Enskede,Sweden',
+                '120 71	Stockholm,Sweden',
+                '749 45	Enköping,Sweden',
+                '174 66	Sundbyberg,Sweden',
+                '195 32	Märsta,Sweden'];
+            var _bounds;
+            var _geocoder;
+            var _service;
+            var _markersArray = [];
+            var _result = [];
+
+
+            //setTimeout(() => {
+
+            //    initMap();
+
+            //}, 2000)
+
+
+            function calculateTime(originLatLng, skip) {
+
+                let take = 2;
+                let destinations = skipTake(_destinations, skip, take);
+
+                if (destinations.length > 0) {
+                    const request = {
+                        origins: [originLatLng],
+                        destinations: destinations,
+                        travelMode: google.maps.TravelMode.DRIVING,
+                        unitSystem: google.maps.UnitSystem.METRIC,
+                        avoidHighways: false,
+                        avoidTolls: false,
+                    };
+
+                    // put request on page
+                    //document.getElementById("request").innerText = JSON.stringify(
+                    //	request,
+                    //	null,
+                    //	2
+                    //);
+                    // get distance matrix response
+                    _service.getDistanceMatrix(request).then((response) => {
+                        // put response
+                        //document.getElementById("response").innerText = JSON.stringify(
+                        //	response,
+                        //	null,
+                        //	2
+                        //);
+
+                        // show on map
+                        const originList = response.originAddresses;
+                        const destinationList = response.destinationAddresses;
+
+
+                        const showGeocodedAddressOnMap = (asDestination) => {
+
+                            const handler = ({ results }) => {
+                                map.fitBounds(_bounds.extend(results[0].geometry.location));
+                                _markersArray.push(
+                                    new google.maps.Marker({
+                                        map,
+                                        position: results[0].geometry.location,
+                                        label: asDestination ? "D" : "O",
+                                    })
+                                );
+                            };
+
+
+                            return handler;
+                        };
+
+                        for (let i = 0; i < originList.length; i++) {
+                            const results = response.rows[i].elements;
+
+                            //_geocoder.geocode({ address: originList[i] })
+                            //	.then(showGeocodedAddressOnMap(false));
+
+                            for (let j = 0; j < results.length; j++) {
+
+                                _result.push({ destination: destinationList[j], Distance: results[j].distance.text, Time: results[j].duration.text })
+
+                                $('#tbl_distance').append(`<tr><td>${destinationList[j]}</td> <td>${results[j].distance.text}</td> <td>${results[j].duration.text}</td></tr>`);
+
+                                //_geocoder.geocode({ address: destinationList[j] })
+                                //	.then(showGeocodedAddressOnMap(true));
+                            }
+
+
+                        }
+                    });
+
+                    setTimeout(() => {
+                        calculateTime(originLatLng, skip + take);
+                    }, 3000);
+
+                }
+
+
+            }
+
+            function initMap() {
+
+
+                map = new google.maps.Map(document.getElementById("mapd"), {
+                    center: { lat: 59.32489359908779, lng: 18.071498668311246 },
+                    zoom: 10,
+                });
+                // initialize services
+                _geocoder = new google.maps.Geocoder();
+                _service = new google.maps.DistanceMatrixService();
+
+                _bounds = new google.maps.LatLngBounds();
+                map.addListener("click", (mapsMouseEvent) => {
+
+                    new google.maps.Marker({
+                        map,
+                        position: mapsMouseEvent.latLng,
+                        label: 'A',
+                        icon: 'http://maps.google.com/mapfiles/kml/paddle/grn-blank.png'
+                    });
+
+                    deleteMarkers();
+                    calculateTime(mapsMouseEvent.latLng, 0);
+
+                });
+
+
+
+
+            }
+
+            function deleteMarkers() {
+                for (let i = 0; i < _markersArray.length; i++) {
+                    _markersArray[i].setMap(null);
+                }
+
+                _markersArray = [];
+            }
+
+
+            function skipTake(array, skip, take) {
+
+                let len = array.length;
+                if ((skip + take) > len) {
+                    take = len - skip;
+                }
+
+                let newArray = [];
+                for (i = skip; i < (skip + take); i++) {
+                    newArray.push(array[i]);
+                }
+
+                return newArray;
+            }
+
+        </script>*@
+
+}
